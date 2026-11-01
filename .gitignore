@@ -1,0 +1,21 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+crash.log
+
+# Secrets and credentials
+.env
+*-key.json
+credentials
+kubeconfig*
+
+# Python
+__pycache__/
+.venv/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
