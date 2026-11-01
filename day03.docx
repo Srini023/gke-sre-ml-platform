@@ -1,0 +1,106 @@
+Day 3: Kubernetes Basics, Rollouts and Troubleshooting
+Nov 1, 2026 · @Srinivas BV
+On Day 3 a three-replica nginx Deployment on GKE was healed, scaled, updated, broken on purpose and rolled back, and two connection errors were diagnosed along the way.
+What Day 3 covered
+The goal was to learn how a Deployment behaves under normal operation and under failure, using a fresh GKE cluster created and destroyed the same night.
+•	Setup: terraform apply recreated the zonal cluster sre-ml-gke (2 Spot nodes, 9 resources). Manifests in k8s/day3/: a namespace, a Deployment web (nginx, 3 replicas, rolling update with maxSurge: 1 and maxUnavailable: 0, readiness and liveness probes, requests and limits) and a ClusterIP Service.
+•	Experiments: self-healing, scaling 3 to 5 and back, a good rolling update (1.27 to 1.28), a bad image rollout (nginx:1.99.99), a bad readiness probe (path /nope) and a rollback after each failure.
+•	Result: the site stayed available through every failure, because the old pods were never removed until new ones were ready. Every rollback restored the last good ReplicaSet.
+•	Side findings: two connection errors (x509 and i/o timeout), and drift between Git and the live cluster.
+Lab observations
+Each experiment showed one Kubernetes behaviour directly in the command output.
+Experiment	What was observed	Why it happened
+Initial deploy	3 pods 1/1 Running, spread 2 and 1 across the 2 nodes. Pod IPs 10.24.1.x on one node and 10.24.0.x on the other	The scheduler balances by requests. Each node owns its own pod IP range
+Delete all pods	3 new pods within about a second, same ReplicaSet hash 6f798b7ccb	The ReplicaSet restores the desired count. The template did not change, so the same ReplicaSet recreated them
+New pods after creation	Running but 0/1 for 5 to 15 seconds	The readiness probe had not passed yet. Running does not mean ready
+Scale 3 to 5 to 3	Extra pods spread over both nodes (2 and 3). Scale-down removed the extras	Default scheduling spreads roughly, not strictly
+Rolling update 1.27 to 1.28	One new pod, wait for ready, remove one old pod, repeated 3 times. Peak 4 pods, never fewer than 3 ready. New ReplicaSet 8449bf6b9, old kept at 0	maxSurge: 1 allows one extra pod. maxUnavailable: 0 keeps ready pods at 3. The old ReplicaSet is kept for rollback
+Bad image nginx:1.99.99	New pod ErrImagePull then ImagePullBackOff. The 3 old pods stayed 1/1. rollout status timed out. Event: NotFound	Tag does not exist in the registry. The new pod never became ready, so no old pod was removed
+Bad readiness path /nope	New pod Running, 0/1, RESTARTS 0. Event: Readiness probe failed: statuscode 404. Old pods stayed 1/1	Container healthy but failing its check, so it gets no traffic and is not restarted
+rollout undo (twice)	Previous ReplicaSet scaled back to 3. Revision numbers moved forward (1, 3, 4)	A rollback reuses an old template as a new revision
+Two extra findings:
+•	Drift: kubectl set image and rollout undo change the cluster but not the YAML in Git. The repo says nginx:1.27 while the cluster ran nginx:1.28, and kubectl warned about the last-applied-configuration annotation.
+•	Misleading history: CHANGE-CAUSE is copied from an annotation at each revision. Revision 3 (the bad image) showed the same text as revision 4 because the annotation was not updated for each change.
+Troubleshooting log
+Four problems came up. Two were real cluster-access errors, and two were typing slips that made the fix look like it failed.
+1. x509: certificate signed by unknown authority
+•	Symptom: every kubectl command failed with tls: failed to verify certificate: x509: certificate signed by unknown authority.
+•	Root cause: each GKE cluster generates its own certificate authority (CA). get-credentials stores the endpoint and CA in ~/.kube/config. The cluster was destroyed on Day 2 and recreated with the same name, so the kubeconfig still held the old CA. The new API server presented a certificate signed by a different CA, and kubectl correctly refused it.
+•	Diagnosis: kubectl config current-context showed the right name, which hid the problem. Comparing the CA in kubeconfig with gcloud container clusters describe would show a mismatch.
+•	Fix: gcloud container clusters get-credentials sre-ml-gke --zone asia-south1-a --project srevert-sri023, then kubectl get nodes listed both nodes Ready.
+•	Prevention: run get-credentials first after every apply, delete the stale context and cluster entries after every destroy, and never use --insecure-skip-tls-verify.
+2. The fix that did not run
+•	Symptom: the x509 error stayed after the suggested refresh.
+•	Root cause: the command was pasted as (terraform output ...) without the leading $, so the shell printed the command text instead of running it. A later paste also joined two words (kubectlkubectl).
+•	Fix: run the gcloud ... get-credentials command directly and check for kubeconfig entry generated.
+•	Prevention: paste small blocks, read them before pressing Enter, and verify each fix by its output.
+3. dial tcp ...:443: i/o timeout (twice)
+•	Symptom: the first kubectl command after a pause failed with an i/o timeout to the control-plane IP. The retry worked both times.
+•	Root cause: a brief network issue between the laptop and the cluster's public endpoint. It is a different failure class from x509: the connection never completed, rather than completing with an untrusted certificate. Not confirmed beyond that.
+•	Fix: retry the command.
+•	Prevention: if it repeats, check the connection or VPN, and test reachability of the endpoint. The control-plane IP also changes on every recreate (8.234.120.90 on Day 2, 8.234.67.35 on Day 3).
+4. Event commands returning nothing
+•	Symptom: kubectl describe pod -l app=web | grep ... printed nothing, even though the failure existed.
+•	Root cause: filtering describe output with grep over several pods is unreliable, and probe events appear a few seconds after the first failure.
+•	Fix: kubectl describe pod <name> -n day3 | tail -15 and kubectl get events -n day3 --sort-by=.lastTimestamp.
+•	Prevention: use get events for the timeline and describe on one named pod for detail.
+Failure patterns
+READY and RESTARTS tell you more than STATUS: Running does not mean healthy.
+Symptom	Container running?	Typical cause	First check
+ImagePullBackOff or ErrImagePull	No, never started	Wrong tag, missing image, registry access	describe pod events
+Running, 0/1, restarts 0	Yes	Readiness probe failing: wrong path or port, app not ready	get events, app logs
+CrashLoopBackOff, restarts climbing	Starts, then exits	App crash, bad config, or liveness probe failing	logs --previous
+Pending	No	No node fits the requests, or a scheduling constraint	describe pod events
+OOMKilled	Killed and restarted	Memory over the limit	describe pod, last state
+Diagnosis routine for any stuck pod: kubectl get pods for status, kubectl describe pod <name> for events, kubectl get events --sort-by=.lastTimestamp for the cluster timeline, then kubectl logs <name> for the application.
+The last three rows were not seen tonight and are listed from general Kubernetes knowledge.
+Interview questions
+These are built from what happened tonight, so each answer can use a real example. Practise answering aloud in under two minutes. The points under each question are what a strong answer covers.
+Core concepts
+1.	What happens if a pod in a Deployment dies?
+o	The ReplicaSet notices the count is below replicas and creates a replacement. It is a pod, not a node.
+o	Example: all 3 pods were deleted and 3 new ones were running within about a second.
+2.	Explain readiness and liveness probes. What happens when each fails?
+o	Readiness failing removes the pod from Service endpoints, with no restart.
+o	Liveness failing makes the kubelet restart the container.
+o	Example: a bad readiness path left a pod Running 0/1 with RESTARTS 0.
+3.	What is the difference between requests and limits?
+o	Requests are reserved and used by the scheduler to place the pod. Limits are enforced at runtime.
+o	Over the memory limit, the container is OOMKilled. Over the CPU limit, it is throttled.
+o	Mention QoS: requests below limits gives Burstable, equal gives Guaranteed.
+4.	What do maxSurge and maxUnavailable control?
+o	maxSurge: 1 allows one pod above the desired count. maxUnavailable: 0 keeps ready pods at the desired count.
+o	Together: start a new pod, wait for ready, remove an old one, repeat.
+5.	Why use a Service when pods already have IPs?
+o	Pod IPs change when pods are recreated. A Service gives a stable virtual IP and DNS name and load-balances to ready pods selected by label.
+Scenario and troubleshooting
+6.	A rollout is stuck at 1 of 3 new replicas. What do you do?
+o	kubectl rollout status, get pods, describe pod, get events.
+o	Decide by symptom: ImagePullBackOff means a bad image reference, and Running 0/1 means a failing readiness check.
+o	If the new version cannot be fixed quickly, kubectl rollout undo, then fix and redeploy.
+7.	Why did users stay unaffected during your bad deployment?
+o	maxUnavailable: 0 forbids removing an old pod until a new one is ready. The new pod never became ready, so all 3 old pods kept serving.
+8.	How do you tell ImagePullBackOff from a failing readiness probe?
+o	Compare the table above: whether the container runs, the READY column, restarts and the events.
+o	Strong answer adds the third pattern, CrashLoopBackOff with climbing restarts.
+9.	kubectl returns x509: certificate signed by unknown authority after you recreated a cluster. What is the cause?
+o	Every GKE cluster has its own CA. The kubeconfig still has the old one, so verification fails.
+o	Confirm by comparing the CA in kubeconfig with the cluster's. Fix with get-credentials. Do not skip TLS verification.
+10.	How is that error different from dial tcp ... i/o timeout?
+o	x509: the connection completed but trust failed. Timeout: the connection never completed, so look at the network path.
+Design and judgment
+11.	What is drift, and how did you create it?
+o	kubectl set image and rollout undo changed the live cluster but not the YAML in Git, so Git said 1.27 while the cluster ran 1.28, and a later kubectl apply would silently revert it.
+o	GitOps tools such as ArgoCD make Git the source of truth and report or correct drift.
+12.	How would you make this rollout safer in production?
+o	Add a startupProbe for slow apps, a PodDisruptionBudget, topologySpreadConstraints across nodes or zones, and image tags pinned by digest.
+o	Automate checks: run canary analysis (planned for Week 6) and roll back on failure.
+o	Set the change-cause automatically in CI so the revision history is accurate.
+13.	Why do you destroy the cluster after every session, and how do you protect against runaway cost?
+o	Terraform makes recreation cheap and repeatable. Budget alerts only notify, so destruction is the real control.
+o	Mention the free-trial credit and its expiry.
+Behavioural
+14.	Tell me about a time you debugged something under pressure.
+o	Use the x509 story: symptom, hypothesis (stale CA), how you confirmed it, the fix, and the prevention rule you added.
+o	Be honest about the slip: a mistyped command made the first fix look like it failed, and the lesson was to verify every fix by its output.
+
