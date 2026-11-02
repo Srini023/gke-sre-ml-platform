@@ -4,6 +4,6 @@ metadata:
   name: app-config
   namespace: day4
 data:
-  APP_ENV: sandbox
+  APP_ENV: staging
   index.html: |
-    <h1>Day 4 config v1</h1>
+    <h1>Day 4 config v2</h1>
