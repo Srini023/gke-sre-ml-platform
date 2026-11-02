@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: day4
+data:
+  APP_ENV: sandbox
+  index.html: |
+    <h1>Day 4 config v1</h1>

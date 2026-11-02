@@ -21,6 +21,7 @@ resource "google_container_cluster" "primary" {
   network             = google_compute_network.vpc.id
   subnetwork          = google_compute_subnetwork.subnet.id
   deletion_protection = false
+  datapath_provider   = "ADVANCED_DATAPATH"
 
   remove_default_node_pool = true
   initial_node_count       = 1
