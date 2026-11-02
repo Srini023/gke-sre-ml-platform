@@ -30,3 +30,12 @@ Work in progress. Built day by day as part of a structured SRE upskilling plan.
 8. EU compliance notes (GDPR, data residency)
 
 Planned next: CKA-level depth, drift monitoring, FinOps.
+
+## Daily log
+
+| Day | Topic | Notes |
+|---|---|---|
+| 1 | Repo, tools, GCP project, budget | `docs/day1-setup-log.md` |
+| 2 | Terraform remote state, first GKE cluster | `docs/day2-notes.md`, `infra/gcp/` |
+| 3 | Pods, deployments, probes, rollouts | `docs/day3-notes.md`, `k8s/day3/` |
+| 4 | ConfigMaps, Secrets, Ingress, NetworkPolicy | `docs/day4-notes.md`, `k8s/day4/` |
