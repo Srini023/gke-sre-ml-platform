@@ -35,7 +35,8 @@ Planned next: CKA-level depth, drift monitoring, FinOps.
 
 | Day | Topic | Notes |
 |---|---|---|
-| 1 | Repo, tools, GCP project, budget | `docs/day1-setup-log.md` |
+| 1 | Repo, tools, GCP project, budget | `docs/day1-setup-log.md`, `docs/day1-readme.md` |
 | 2 | Terraform remote state, first GKE cluster | `docs/day2-notes.md`, `infra/gcp/` |
 | 3 | Pods, deployments, probes, rollouts | `docs/day3-notes.md`, `k8s/day3/` |
 | 4 | ConfigMaps, Secrets, Ingress, NetworkPolicy | `docs/day4-notes.md`, `k8s/day4/` |
+| 5 | Iris FastAPI container, Artifact Registry, GKE deploy | `docs/day5-notes.md`, `app/`, `k8s/day5/` |

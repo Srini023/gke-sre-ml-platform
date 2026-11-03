@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: iris-api
+  namespace: day5
+spec:
+  selector:
+    app: iris-api
+  ports:
+    - port: 80
+      targetPort: 8000
