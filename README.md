@@ -40,3 +40,4 @@ Planned next: CKA-level depth, drift monitoring, FinOps.
 | 3 | Pods, deployments, probes, rollouts | `docs/day3-notes.md`, `k8s/day3/` |
 | 4 | ConfigMaps, Secrets, Ingress, NetworkPolicy | `docs/day4-notes.md`, `k8s/day4/` |
 | 5 | Iris FastAPI container, Artifact Registry, GKE deploy | `docs/day5-notes.md`, `app/`, `k8s/day5/` |
+| 6 | Helm chart, upgrade, atomic rollback, uninstall; gke-guard tool | `docs/day6-notes.md`, `k8s/helm/iris-api/`, `tools/gke-guard/` |
