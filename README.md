@@ -52,3 +52,4 @@ Planned next: drift monitoring and FinOps.
 | 4 | ConfigMaps, Secrets, Ingress, NetworkPolicy | `docs/day4-notes.md`, `k8s/day4/` |
 | 5 | Iris FastAPI container, Artifact Registry, GKE deploy | `docs/day5-notes.md`, `app/`, `k8s/day5/` |
 | 6 | Helm chart, upgrade, atomic rollback, uninstall; gke-guard tool | `docs/day6-notes.md`, `k8s/helm/iris-api/`, `tools/gke-guard/` |
+| 7 | Week 1 wrap-up: README refresh, log parser, pytest tests | `docs/day7-notes.md`, `tools/log-parser/`, `tools/gke-guard/` |
