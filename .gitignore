@@ -24,3 +24,4 @@ tools/log-parser/*.log
 # Test caches
 .pytest_cache/
 app/model.joblib
+day9.tfplan

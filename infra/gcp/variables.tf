@@ -5,12 +5,12 @@ variable "project_id" {
 
 variable "region" {
   type    = string
-  default = "asia-south1"
+  default = "europe-west3"
 }
 
 variable "zone" {
   type    = string
-  default = "asia-south1-a"
+  default = "europe-west3-a"
 }
 
 variable "cluster_name" {
@@ -20,7 +20,7 @@ variable "cluster_name" {
 
 variable "node_count" {
   type    = number
-  default = 2
+  default = 1
 }
 
 variable "machine_type" {
