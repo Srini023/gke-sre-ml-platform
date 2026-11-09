@@ -20,3 +20,6 @@ __pycache__/
 .idea/
 .DS_Store
 tools/log-parser/*.log
+
+# Test caches
+.pytest_cache/
