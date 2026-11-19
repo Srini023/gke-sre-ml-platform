@@ -1,0 +1,29 @@
+# Lab-sized kube-prometheus-stack for GKE
+
+prometheus:
+  prometheusSpec:
+    retention: 6h
+    # Pick up ServiceMonitors/PodMonitors from every namespace, not just this release's
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    resources:
+      requests: {cpu: 200m, memory: 512Mi}
+      limits: {memory: 1Gi}
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+
+grafana:
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+
+# GKE manages the control plane, so these endpoints can't be scraped.
+# Leaving them on just produces permanent "target down" alerts.
+kubeControllerManager: {enabled: false}
+kubeScheduler: {enabled: false}
+kubeEtcd: {enabled: false}
+# Dataplane V2 (eBPF) replaces kube-proxy
+kubeProxy: {enabled: false}
