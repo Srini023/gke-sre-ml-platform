@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: europe-west3-docker.pkg.dev/srevert-sri023/iris/iris-api
-  tag: "16a7c17"
+  tag: "151f4b4"
 
 service:
   port: 80
@@ -15,3 +15,7 @@ resources:
   limits:
     cpu: 500m
     memory: 512Mi
+
+serviceMonitor:
+  enabled: true
+  interval: 15s

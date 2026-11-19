@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iris-red-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  iris-red.json: |
+    {
+      "title": "iris API - RED",
+      "uid": "iris-red",
+      "schemaVersion": 39,
+      "time": {"from": "now-30m", "to": "now"},
+      "refresh": "10s",
+      "panels": [
+        {"type": "timeseries", "title": "Request rate by status (req/s)",
+         "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+         "datasource": {"type": "prometheus", "uid": "prometheus"},
+         "targets": [{"refId": "A", "legendFormat": "{{status}}",
+           "expr": "sum by (status) (rate(http_requests_total{namespace=\"iris\", route=\"/predict\"}[1m]))"}]},
+        {"type": "timeseries", "title": "5xx error ratio",
+         "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+         "datasource": {"type": "prometheus", "uid": "prometheus"},
+         "fieldConfig": {"defaults": {"unit": "percentunit"}},
+         "targets": [{"refId": "A", "legendFormat": "5xx ratio",
+           "expr": "(sum(rate(http_requests_total{namespace=\"iris\", route=\"/predict\", status=~\"5..\"}[1m])) or vector(0)) / sum(rate(http_requests_total{namespace=\"iris\", route=\"/predict\"}[1m]))"}]},
+        {"type": "timeseries", "title": "Latency p50 / p95 / p99",
+         "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+         "datasource": {"type": "prometheus", "uid": "prometheus"},
+         "fieldConfig": {"defaults": {"unit": "s"}},
+         "targets": [
+           {"refId": "A", "legendFormat": "p50", "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{namespace=\"iris\", route=\"/predict\"}[1m])))"},
+           {"refId": "B", "legendFormat": "p95", "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace=\"iris\", route=\"/predict\"}[1m])))"},
+           {"refId": "C", "legendFormat": "p99", "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{namespace=\"iris\", route=\"/predict\"}[1m])))"}]},
+        {"type": "timeseries", "title": "Predictions by species (per s)",
+         "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+         "datasource": {"type": "prometheus", "uid": "prometheus"},
+         "targets": [{"refId": "A", "legendFormat": "{{species}}",
+           "expr": "sum by (species) (rate(iris_predictions_total{namespace=\"iris\"}[1m]))"}]}
+      ]
+    }
