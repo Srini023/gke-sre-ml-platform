@@ -1,0 +1,81 @@
+{{- if and .Values.slo.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+{{- $route := .Values.slo.route }}
+{{- $le := .Values.slo.latency.thresholdSeconds }}
+{{- $availBudget := .Values.slo.availability.errorBudget }}
+{{- $latBudget := .Values.slo.latency.errorBudget }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-slo
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  groups:
+    - name: {{ .Release.Name }}-slo-recording
+      interval: 30s
+      rules:
+      {{- range $w := list "5m" "30m" "1h" "6h" }}
+        - record: slo:iris_errors:ratio_rate{{ $w }}
+          expr: |
+            (sum(rate(http_requests_total{route="{{ $route }}",status=~"5.."}[{{ $w }}])) or vector(0))
+            /
+            sum(rate(http_requests_total{route="{{ $route }}"}[{{ $w }}]))
+        - record: slo:iris_slow:ratio_rate{{ $w }}
+          expr: |
+            1 - (
+              sum(rate(http_request_duration_seconds_bucket{route="{{ $route }}",le="{{ $le }}"}[{{ $w }}]))
+              /
+              sum(rate(http_request_duration_seconds_count{route="{{ $route }}"}[{{ $w }}]))
+            )
+      {{- end }}
+    - name: {{ .Release.Name }}-slo-alerts
+      rules:
+        - alert: IrisAvailabilityFastBurn
+          expr: |
+            slo:iris_errors:ratio_rate1h > (14.4 * {{ $availBudget }})
+            and
+            slo:iris_errors:ratio_rate5m > (14.4 * {{ $availBudget }})
+          for: 2m
+          labels:
+            severity: page
+            slo: availability
+          annotations:
+            summary: "iris {{ $route }} burning availability budget >14.4x"
+            description: "1h 5xx ratio is {{`{{ $value | humanizePercentage }}`}}; SLO allows {{ $availBudget }}."
+        - alert: IrisAvailabilitySlowBurn
+          expr: |
+            slo:iris_errors:ratio_rate6h > (6 * {{ $availBudget }})
+            and
+            slo:iris_errors:ratio_rate30m > (6 * {{ $availBudget }})
+          for: 5m
+          labels:
+            severity: ticket
+            slo: availability
+          annotations:
+            summary: "iris {{ $route }} burning availability budget >6x"
+            description: "6h 5xx ratio is {{`{{ $value | humanizePercentage }}`}}."
+        - alert: IrisLatencyFastBurn
+          expr: |
+            slo:iris_slow:ratio_rate1h > (14.4 * {{ $latBudget }})
+            and
+            slo:iris_slow:ratio_rate5m > (14.4 * {{ $latBudget }})
+          for: 2m
+          labels:
+            severity: page
+            slo: latency
+          annotations:
+            summary: "iris {{ $route }} burning latency budget >14.4x"
+            description: "1h share of requests slower than {{ $le }}s is {{`{{ $value | humanizePercentage }}`}}."
+        - alert: IrisLatencySlowBurn
+          expr: |
+            slo:iris_slow:ratio_rate6h > (6 * {{ $latBudget }})
+            and
+            slo:iris_slow:ratio_rate30m > (6 * {{ $latBudget }})
+          for: 5m
+          labels:
+            severity: ticket
+            slo: latency
+          annotations:
+            summary: "iris {{ $route }} burning latency budget >6x"
+            description: "6h share of slow requests is {{`{{ $value | humanizePercentage }}`}}."
+{{- end }}

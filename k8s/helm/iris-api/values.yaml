@@ -24,3 +24,15 @@ serviceMonitor:
 env:
   FAULT_ERROR_RATE: "0"
   FAULT_LATENCY_MS: "0"
+
+# SLOs for /predict (30-day window). Budgets = 1 - objective.
+slo:
+  enabled: true
+  route: /predict
+  availability:
+    objective: 99.5
+    errorBudget: 0.005
+  latency:
+    objective: 95
+    thresholdSeconds: "0.25"
+    errorBudget: 0.05
