@@ -1,9 +1,11 @@
 """Iris classifier API with Prometheus metrics."""
+import os
+import random
 import time
 from contextlib import asynccontextmanager
 
 import joblib
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel, Field
 
@@ -17,7 +19,7 @@ HTTP_REQUESTS = Counter(
 HTTP_LATENCY = Histogram(
     "http_request_duration_seconds", "HTTP request latency in seconds",
     ["method", "route"],
-    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 1.0, 2.5),
 )
 PREDICTIONS = Counter("iris_predictions_total", "Predictions by species", ["species"])
 
@@ -72,6 +74,12 @@ def metrics():
 
 @app.post("/predict")
 def predict(f: IrisFeatures):
+    # Fault injection for SLO/alert drills. Both default to 0 = off.
+    latency_ms = int(os.getenv("FAULT_LATENCY_MS", "0"))
+    if latency_ms > 0:
+        time.sleep(latency_ms / 1000)
+    if random.random() < float(os.getenv("FAULT_ERROR_RATE", "0")):
+        raise HTTPException(status_code=503, detail="injected fault")
     row = [[f.sepal_length, f.sepal_width, f.petal_length, f.petal_width]]
     idx = int(state["model"].predict(row)[0])
     species = state["classes"][idx]

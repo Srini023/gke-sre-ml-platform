@@ -18,6 +18,13 @@ spec:
       containers:
         - name: iris-api
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- with .Values.env }}
+          env:
+            {{- range $k, $v := . }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          {{- end }}
           ports:
             - containerPort: {{ .Values.service.targetPort }}
           readinessProbe:

@@ -19,3 +19,8 @@ resources:
 serviceMonitor:
   enabled: true
   interval: 15s
+
+# Fault injection switches for SLO drills (0 = off)
+env:
+  FAULT_ERROR_RATE: "0"
+  FAULT_LATENCY_MS: "0"
