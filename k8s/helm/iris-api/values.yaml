@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: europe-west3-docker.pkg.dev/srevert-sri023/iris/iris-api
-  tag: "151f4b4"
+  tag: "71e7a84"
 
 service:
   port: 80
